@@ -1,0 +1,26 @@
+{
+  "pipeline": "capture-all-cdc",
+
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "mycdc_repl",
+    "password": "${MYCDC_MYSQL_PASSWORD}",
+    "server_id": 1001
+  },
+
+  "tables": {},
+
+  "state": {
+    "path": "./state/capture-all-cdc.json"
+  },
+
+  "sinks": [
+    {
+      "type": "stdout",
+      "format": "pretty"
+    }
+  ],
+
+  "log_level": "info"
+}

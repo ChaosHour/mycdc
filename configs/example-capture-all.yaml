@@ -1,0 +1,30 @@
+# mycdc pipeline configuration -- capture EVERY database and table.
+#
+# Omitting `tables` entirely (or leaving `tables.include` empty, as shown
+# below) means "no restriction": every table on the server that mycdc's
+# user can see is captured. This is the simplest possible filter config --
+# see example-exclude.yaml for how to carve out exceptions instead, and
+# example.yaml for the opposite: an allow-list of just a few tables.
+
+pipeline: capture-all-cdc
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: mycdc_repl
+  password: ${MYCDC_MYSQL_PASSWORD}
+  server_id: 1001
+
+# No include/exclude patterns at all -- every database and table is
+# captured. (`tables: {}` and omitting the `tables` key entirely behave
+# identically.)
+tables: {}
+
+state:
+  path: ./state/capture-all-cdc.json
+
+sinks:
+  - type: stdout
+    format: pretty
+
+log_level: info

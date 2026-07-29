@@ -152,8 +152,8 @@ commented, side-by-side examples.
 | `mysql.charset` | no | `utf8mb4` | |
 | `mysql.heartbeat_period` | no | `30s` | |
 | `mysql.read_timeout` | no | `90s` | |
-| `tables.include` | no | (all tables) | Glob `database.table` patterns, e.g. `"shop.orders"`, `"shop.*"`. |
-| `tables.exclude` | no | (none) | Same syntax; always wins over `include`. |
+| `tables.include` | no | (all databases/tables) | Glob `database.table` patterns, e.g. `"shop.orders"`, `"shop.*"`. Leave empty (or omit `tables` entirely) to capture every database and table on the server. |
+| `tables.exclude` | no | (none) | Same syntax; always wins over `include`. `"dbname.*"` excludes a whole database; `"*.tablename"` excludes a table across every database. |
 | `state.path` | yes | -- | JSON checkpoint file. Parent directories are created automatically. |
 | `state.flush_interval` | no | `5s` | How often the checkpoint is persisted. |
 | `sinks` | yes (≥1) | -- | List of sink configs; see below. |
@@ -191,17 +191,25 @@ All three receive every event that passes the table filter; one being
 slow or down doesn't block the others (see
 [docs/DESIGN.md](docs/DESIGN.md#delivery-fan-out-and-failure-isolation)).
 
-### Capturing everything except one noisy table
+### Table filtering: everything, an allow-list, or a deny-list
+
+`tables.include` and `tables.exclude` take glob-style `"database.table"`
+patterns (`*` matches any run of characters, including none, on either
+side of the dot). The three styles below are all valid, complete configs
+in [configs/](configs/) -- use whichever fits how you think about the
+problem:
+
+**1. Capture every database and table** -- leave `tables` empty (or omit
+it):
 
 ```yaml
-tables:
-  exclude:
-    - "shop.audit_log"
+tables: {}
 ```
 
-Leaving `include` empty means "every table"; `exclude` still applies.
+Full example: [configs/example-capture-all.yaml](configs/example-capture-all.yaml)
+/ [.json](configs/example-capture-all.json).
 
-### Capturing only a couple of tables across databases
+**2. Allow-list -- capture only specific tables:**
 
 ```yaml
 tables:
@@ -209,6 +217,34 @@ tables:
     - "shop.orders"
     - "billing.invoices"
 ```
+
+Only tables matching `include` are captured; everything else is ignored.
+Full example: [configs/example.yaml](configs/example.yaml) /
+[.json](configs/example.json).
+
+**3. Deny-list -- capture everything except specific databases/tables:**
+
+```yaml
+tables:
+  # include left empty: "everything not excluded below"
+  exclude:
+    - "logging.*"                       # an entire database
+    - "shop.password_reset_tokens"      # one table in one database
+    - "*.audit_log"                     # one table name, any database
+    - "mysql.*"                         # MySQL's own internal schema
+    - "sys.*"
+    - "performance_schema.*"
+    - "information_schema.*"
+```
+
+This is the common choice for "capture the whole server except the noisy
+or sensitive bits" -- including MySQL's own system schemas, which a bare
+"capture everything" pipeline would otherwise pick up too. Full example:
+[configs/example-exclude.yaml](configs/example-exclude.yaml) /
+[.json](configs/example-exclude.json).
+
+`exclude` always wins: if a table matches both `include` and `exclude`,
+it is not captured.
 
 ### Piping stdout JSON into another tool
 
