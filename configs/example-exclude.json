@@ -1,0 +1,38 @@
+{
+  "pipeline": "exclude-example-cdc",
+
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "mycdc_repl",
+    "password": "${MYCDC_MYSQL_PASSWORD}",
+    "server_id": 1002
+  },
+
+  "tables": {
+    "exclude": [
+      "logging.*",
+      "analytics_raw.*",
+      "ecommerce.password_reset_tokens",
+      "*.audit_log",
+      "*.sessions",
+      "mysql.*",
+      "sys.*",
+      "performance_schema.*",
+      "information_schema.*"
+    ]
+  },
+
+  "state": {
+    "path": "./state/exclude-example-cdc.json"
+  },
+
+  "sinks": [
+    {
+      "type": "stdout",
+      "format": "json"
+    }
+  ],
+
+  "log_level": "info"
+}

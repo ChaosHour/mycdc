@@ -1,0 +1,56 @@
+# mycdc pipeline configuration -- capture every database and table EXCEPT
+# a specific list of exclusions.
+#
+# This is the common real-world middle ground between "capture literally
+# everything" (example-capture-all.yaml) and "hand-maintain an allow-list
+# of every table I care about" (example.yaml): start from "everything",
+# then carve out the noisy, internal, or sensitive tables you don't want.
+#
+# tables.include is left empty, so every database/table is a candidate;
+# tables.exclude then removes specific ones. Exclude patterns are
+# glob-style "database.table" and always win over include, so there's no
+# ordering to worry about.
+#
+# The example names below (ecommerce, analytics, logging, ...) are
+# illustrative -- replace them with your own database and table names.
+
+pipeline: exclude-example-cdc
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: mycdc_repl
+  password: ${MYCDC_MYSQL_PASSWORD}
+  server_id: 1002
+
+tables:
+  # include is intentionally empty: "every database/table not excluded
+  # below is captured."
+  exclude:
+    # Exclude an entire database by matching every table in it with "*".
+    - "logging.*"
+    - "analytics_raw.*"
+
+    # Exclude one noisy or sensitive table, scoped to a single database...
+    - "ecommerce.password_reset_tokens"
+
+    # ...or across every database at once, using "*" on the database side.
+    - "*.audit_log"
+    - "*.sessions"
+
+    # MySQL's own internal/system schemas -- excluded here defensively so
+    # a broad "capture everything" pipeline never accidentally streams
+    # server-internal bookkeeping tables.
+    - "mysql.*"
+    - "sys.*"
+    - "performance_schema.*"
+    - "information_schema.*"
+
+state:
+  path: ./state/exclude-example-cdc.json
+
+sinks:
+  - type: stdout
+    format: json
+
+log_level: info

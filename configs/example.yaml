@@ -1,7 +1,7 @@
 # mycdc pipeline configuration -- YAML.
 #
 # Quick start:
-#   1. Fill in the mysql: block for your server (see docs/README.md for the
+#   1. Fill in the mysql: block for your server (see ../README.md for the
 #      minimal MySQL-side setup: binlog_format=ROW, a replication user).
 #   2. mycdc validate -c example.yaml
 #   3. mycdc run -c example.yaml
@@ -9,6 +9,11 @@
 # Every field here also has a JSON equivalent -- see example.json. mycdc
 # picks the parser by file extension (.yaml/.yml -> YAML, .json -> JSON),
 # so pick whichever your team already tools around.
+#
+# This file shows the "allow-list" table filtering style: only the tables
+# named under tables.include are captured. See also:
+#   - example-capture-all.yaml -- capture every database and table
+#   - example-exclude.yaml     -- capture everything except a deny-list
 
 # Unique, stable name for this pipeline. It is stamped onto every emitted
 # event and used as the checkpoint key in the state file, so renaming it is
