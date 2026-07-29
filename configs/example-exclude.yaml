@@ -38,9 +38,16 @@ tables:
     - "*.audit_log"
     - "*.sessions"
 
-    # MySQL's own internal/system schemas -- excluded here defensively so
-    # a broad "capture everything" pipeline never accidentally streams
-    # server-internal bookkeeping tables.
+    # MySQL's own internal/system schemas. mycdc itself never writes
+    # anywhere -- it only reads the binlog and emits events outward, so
+    # capturing these can't overwrite anything on its own. The real reason
+    # to exclude them is for whatever consumes these events downstream: if
+    # something replays captured mysql.*/sys.* changes into a *different*
+    # live server, it can clobber that server's own accounts and internal
+    # bookkeeping. (information_schema is virtual/computed and
+    # performance_schema isn't binlogged either, so excluding those two is
+    # mostly defensive rather than load-bearing; mysql.* and sys.* are the
+    # ones that actually matter.)
     - "mysql.*"
     - "sys.*"
     - "performance_schema.*"
