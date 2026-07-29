@@ -1,0 +1,14 @@
+# Build artifacts
+/mycdc
+*.exe
+*.test
+
+# Local runtime output from example/config runs
+/state/
+/out/
+
+# Editor/OS cruft
+.DS_Store
+
+# Claude Code local settings (machine-specific, not project config)
+.claude/

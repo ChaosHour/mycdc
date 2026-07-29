@@ -1,0 +1,48 @@
+{
+  "pipeline": "orders-cdc",
+
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "mycdc_repl",
+    "password": "${MYCDC_MYSQL_PASSWORD}",
+    "server_id": 1001,
+    "flavor": "mysql",
+    "charset": "utf8mb4",
+    "heartbeat_period": "30s",
+    "read_timeout": "90s"
+  },
+
+  "tables": {
+    "include": ["shop.orders", "shop.order_items"],
+    "exclude": ["shop.audit_log"]
+  },
+
+  "state": {
+    "path": "./state/orders-cdc.json",
+    "flush_interval": "5s"
+  },
+
+  "sinks": [
+    {
+      "type": "stdout",
+      "format": "json"
+    },
+    {
+      "type": "file",
+      "path": "./out/orders-cdc.jsonl"
+    },
+    {
+      "type": "webhook",
+      "url": "https://example.com/cdc-events",
+      "headers": {
+        "Authorization": "Bearer ${MYCDC_WEBHOOK_TOKEN}"
+      },
+      "timeout": "10s",
+      "max_retries": 3,
+      "retry_backoff": "500ms"
+    }
+  ],
+
+  "log_level": "info"
+}

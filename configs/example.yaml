@@ -1,0 +1,96 @@
+# mycdc pipeline configuration -- YAML.
+#
+# Quick start:
+#   1. Fill in the mysql: block for your server (see docs/README.md for the
+#      minimal MySQL-side setup: binlog_format=ROW, a replication user).
+#   2. mycdc validate -c example.yaml
+#   3. mycdc run -c example.yaml
+#
+# Every field here also has a JSON equivalent -- see example.json. mycdc
+# picks the parser by file extension (.yaml/.yml -> YAML, .json -> JSON),
+# so pick whichever your team already tools around.
+
+# Unique, stable name for this pipeline. It is stamped onto every emitted
+# event and used as the checkpoint key in the state file, so renaming it is
+# effectively "start over" for resumption purposes.
+pipeline: orders-cdc
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: mycdc_repl
+  # Prefer an environment variable over a literal password in a file that
+  # might end up in version control. ${VAR} is expanded from the process
+  # environment at load time; an unset variable is left unexpanded (not
+  # silently blanked) so a misconfiguration is easy to spot.
+  password: ${MYCDC_MYSQL_PASSWORD}
+
+  # Must be unique among every replication client connected to this MySQL
+  # server, including real replicas. There is no safe default -- pick a
+  # number and keep a note of who's using what if you run several
+  # pipelines against the same server.
+  server_id: 1001
+
+  # "mysql" (default) or "mariadb". mycdc's tested support matrix is MySQL
+  # 5.7 through 9.x; MariaDB is accepted because the binlog protocol is
+  # compatible, but isn't part of the tested matrix.
+  flavor: mysql
+
+  charset: utf8mb4
+
+  # How often mycdc sends a replication heartbeat to detect a silently
+  # dropped connection.
+  heartbeat_period: 30s
+
+  # How long to wait for a read from the replication stream before giving
+  # up and reconnecting.
+  read_timeout: 90s
+
+# Which tables to capture. Patterns are glob-style "database.table"
+# (e.g. "shop.orders", "shop.*", "*.audit_*"); "*" matches any run of
+# characters, including none. Exclude always wins over Include when both
+# match. Leave both lists empty to capture every table on the server.
+tables:
+  include:
+    - "shop.orders"
+    - "shop.order_items"
+  exclude:
+    - "shop.audit_log"
+
+# Where replication position checkpoints are persisted between runs, so a
+# restart resumes instead of re-scanning the whole binlog.
+state:
+  path: ./state/orders-cdc.json
+
+  # How often the in-memory checkpoint is flushed to disk. Smaller values
+  # bound how much can be redelivered after a crash (see docs/README.md's
+  # "Delivery guarantees" section) at the cost of more frequent writes.
+  flush_interval: 5s
+
+# One or more destinations for captured events. A pipeline can fan out to
+# several sinks at once; all three built-in types are shown below (comment
+# out the ones you don't need).
+sinks:
+  # Prints one JSON object per line to stdout. format: "pretty" gives a
+  # human-readable summary instead -- handy while developing a pipeline.
+  - type: stdout
+    format: json
+
+  # Appends one JSON object per line to a local file (JSON Lines / NDJSON).
+  - type: file
+    path: ./out/orders-cdc.jsonl
+
+  # POSTs each event's JSON body to an HTTP endpoint. 5xx responses and
+  # transport errors are retried with a linear backoff; 4xx responses are
+  # treated as permanent and are not retried.
+  - type: webhook
+    url: https://example.com/cdc-events
+    headers:
+      Authorization: "Bearer ${MYCDC_WEBHOOK_TOKEN}"
+    timeout: 10s
+    max_retries: 3
+    retry_backoff: 500ms
+
+# debug | info (default) | warn | error. Logs go to stderr, so they never
+# interleave with event data written to stdout by the stdout sink.
+log_level: info
