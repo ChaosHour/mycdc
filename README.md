@@ -171,6 +171,18 @@ Any duration field (`heartbeat_period`, `read_timeout`, `flush_interval`,
 webhook `timeout`/`retry_backoff`) accepts a Go duration string like
 `"30s"`, `"5m"`, `"1h30m"` in both YAML and JSON.
 
+**Why the webhook sink?** It's how mycdc plugs into anything that speaks
+HTTP without needing a native integration for it: invalidate a cache
+entry, update a search index, trigger a serverless function, post to
+Slack for specific changes, or forward into a warehouse/ETL ingestion
+API. It's push-based (near real time) rather than something polling a
+file, but per-event HTTP has real overhead -- for high write volume,
+prefer the `file` sink and have something else tail it efficiently. See
+["Multiple sinks at once"](#multiple-sinks-at-once) below: a persistently
+failing webhook stops the whole pipeline, not just webhook delivery, so
+treat `max_retries`/`retry_backoff` and the target endpoint's reliability
+as an availability decision for the pipeline as a whole.
+
 ## Worked examples
 
 ### Multiple sinks at once
@@ -187,9 +199,16 @@ sinks:
       Authorization: "Bearer ${MYCDC_WEBHOOK_TOKEN}"
 ```
 
-All three receive every event that passes the table filter; one being
-slow or down doesn't block the others (see
+All three receive every event that passes the table filter, and one
+failing doesn't stop the *write* to the others for that event (see
 [docs/DESIGN.md](docs/DESIGN.md#delivery-fan-out-and-failure-isolation)).
+But delivery of that event is still only considered successful once every
+sink accepts it: if one sink (e.g. a webhook whose endpoint is down)
+keeps failing past its retries, the event is treated as undelivered, the
+checkpoint doesn't advance past it, and the whole pipeline stops -- even
+though the other sinks did get the event. A sink you expect to be
+unreliable is a pipeline-availability decision, not just a delivery one;
+watch for `"pipeline stopped"` in the logs.
 
 ### Table filtering: everything, an allow-list, or a deny-list
 
